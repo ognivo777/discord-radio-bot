@@ -1,6 +1,8 @@
 # discord-radio-bot
 discord-radio-bot - small but smart Discord bot for stream your favorite music from youtube to the voice channels
 
+![Preview](https://drive.google.com/uc?export=download&id=1bQ0LctDqiiJLQKM2k_WIwwi3WRMXDcIW)
+
 # Using
 
 Run like this
