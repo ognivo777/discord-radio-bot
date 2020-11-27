@@ -56,6 +56,7 @@ public class Bot {
 
 
     public Bot(String key, long commandChannelId, long radioChannelId) {
+        System.out.println("Key: " + key);
         api = new DiscordApiBuilder().setToken(key).login().join();
 
         radioChannel = api.getServerVoiceChannelById(radioChannelId).get();
@@ -143,7 +144,7 @@ public class Bot {
     }
 
     private void handleEmoji(SingleReactionEvent event) {
-        System.out.println("User " + event.getUser().get().getMentionTag() + " use reaction");
+        System.out.println("User " + event.getUser().get().getNicknameMentionTag() + " use reaction");
         String emoji = event.getEmoji().asUnicodeEmoji().get();
         for (char c : emoji.toCharArray()) {
             System.out.println("Name of emoji: " + Character.getName(c));

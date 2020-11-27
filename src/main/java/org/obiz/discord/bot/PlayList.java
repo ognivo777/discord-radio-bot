@@ -28,7 +28,7 @@ public class PlayList {
 //            "https://www.youtube.com/watch?v=-5KAN9_CzSA", // 8 coffee shop radio // 24/7 lofi hip-hop beats
             "https://www.youtube.com/watch?v=lTRiuFIWV54", // 9 1 A.M Study Session 📚 - [lofi hip hop/chill beats]
             "https://www.youtube.com/watch?v=wAPCSnAhhC8", //10 A.M Study Session 📚 - [lofi hip hop/chill beats]
-            "https://www.youtube.com/watch?v=yhsKEw9quf0", //11 vintage songs but you're a teenager in love
+//            "https://www.youtube.com/watch?v=yhsKEw9quf0", //11 vintage songs but you're a teenager in love
 //            "https://www.youtube.com/watch?v=tb0B3auGbtA", //12 VINTAGE RADIO (LIVE OLDIES 24/7!)
             "https://www.youtube.com/watch?v=lcYJhHqotIQ", //13 24/7 같이해요, 로파이 노동요 relax/study with lofi
 //            "https://www.youtube.com/watch?v=oVi5gtzTDx0", //14 Indie / Bedroom / Pop / Surf Rock - 24/7 Radio - Nice Guys Chill FM
