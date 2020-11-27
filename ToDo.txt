@@ -1,0 +1,5 @@
+тут смотреть емоджи
+http://www.iemoji.com/view/emoji/305/symbols/keycap-9
+
+тут пример работы с yandex.music
+https://github.com/JuniperBot/JuniperBot/blob/e3a92b66eb22d1036c57d0adcd5988f03f092ce1/modules/jb-module-audio/src/main/java/ru/juniperbot/module/audio/service/handling/YandexSearchProvider.java
