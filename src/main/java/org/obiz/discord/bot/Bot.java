@@ -29,6 +29,7 @@ public class Bot {
     private static final String NEXT_EMOJI = "\u23ED";
     private static final String PREV_EMOJI = "\u23EE";
     private static final String PLAY_EMOJI = "\u23EF";
+    private static final String PAUSE_EMOJI = "\u23F8";
     private static final String REPEAT_EMOJI = "\uD83D\uDD01"; //U+1F501
     private static final String ROLL_EMOJI = "\uD83D\uDCDC"; //U+1F4DC
     private static final String CLEAR_EMOJI = "\uD83C\uDD91"; //U+1F191  //U+1F191
@@ -54,6 +55,7 @@ public class Bot {
     private Message myMessage;
     private boolean isRepeatOn = false;
     private Map<Long, List<Integer>> privateMessagesWithTracks = new HashMap<>();
+    private String prevContent = "";
 
 
     public Bot(String key, long commandChannelId, long radioChannelId) {
@@ -112,7 +114,7 @@ public class Bot {
            }
         });
 
-        long delay = 3000L;
+        long delay = 10000L;
         new Timer("Timer").scheduleAtFixedRate(new TimerTask() {
             public void run() { updateMessage(); }
         }, delay, delay);
@@ -121,8 +123,17 @@ public class Bot {
             AudioSource source = new LavaplayerAudioSource(api, player);
             audioConnection.setAudioSource(source);
             playTrack(playList.getNext());
+            pauseIfAlone();
         });
 
+    }
+
+    private void pauseIfAlone() {
+        if(radioChannel.getConnectedUserIds().size()==1) {
+            System.out.println("setPaused(true)");
+            player.setPaused(true);
+            updateMessage();
+        }
     }
 
     private void playTrack(AudioTrack track) {
@@ -133,25 +144,37 @@ public class Bot {
     private void updateMessage() {
         AudioTrack track = playList.getCurrent();
         if(track!=null) {
-            myMessage.edit((isRepeatOn ? REPEAT_EMOJI + " " : "") + "now playing: " + track.getInfo().title
+            String content = ""
+                    + (isRepeatOn ? REPEAT_EMOJI + " " : "")
+                    + (player.isPaused() ? PAUSE_EMOJI + " " : "Now playing: ")
+                    + track.getInfo().title
                     + " (" + timeInMsAsString(track.getPosition())
                     + " of " + timeInMsAsString(track.getDuration())
                     + ")"
                     + "\n```" + playList.showPosInQueue()
                     + "\n" + track.getInfo().uri
-                    + "```"
-            );
+                    + "```";
+            if (!content.equals(prevContent)) {
+                myMessage.edit(content);
+                prevContent = content;
+            }
         }
     }
 
     private void handleJoin(ServerVoiceChannelMemberJoinEvent event) {
         System.out.println("Sombdy join");
         //ToDo check if player paused - unpause them
+        if(player.isPaused()) {
+            System.out.println("setPaused(false)");
+            player.setPaused(false);
+            updateMessage();
+        }
     }
 
     private void handleLeave(ServerVoiceChannelMemberLeaveEvent event) {
         System.out.println("Sombdy leave");
         //Todo check if nobody left in channel - pause player
+        pauseIfAlone();
     }
 
     private void handleEmoji(SingleReactionEvent event) {
