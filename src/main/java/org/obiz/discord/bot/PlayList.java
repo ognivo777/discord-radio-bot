@@ -38,6 +38,7 @@ public class PlayList {
 //            "https://www.youtube.com/watch?v=fsbpWD-bAC0", //18 2 second test video
 //            "https://www.youtube.com/watch?v=umh2XG5hZWw", //19 16 sec test video
 //            "https://www.youtube.com/watch?v=KvRVky0r7YM", //20 Progressive House · Relaxing Focus Music · 24/7 Live Radio
+            "https://www.youtube.com/watch?v=HaHBao4W2oI", //Oriental Chillout — Relaxing Music — Inspiring Hong Kong
             "",
             "https://www.youtube.com/watch?v=3bTittbGYGk", //Best Of 2020 Mix ♫ 1 Hour Gaming Music ♫ Trap x House x Dubstep x EDM x Bass
             "https://www.youtube.com/watch?v=ygUe7woTJMM", //1 Hour - Best Music for Relaxing Studying Vol 1 - Anime Edition

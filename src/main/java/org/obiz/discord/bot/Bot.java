@@ -14,6 +14,7 @@ import org.javacord.api.audio.AudioSource;
 import org.javacord.api.entity.channel.ServerVoiceChannel;
 import org.javacord.api.entity.channel.TextChannel;
 import org.javacord.api.entity.message.Message;
+import org.javacord.api.entity.user.User;
 import org.javacord.api.event.channel.server.voice.ServerVoiceChannelMemberJoinEvent;
 import org.javacord.api.event.channel.server.voice.ServerVoiceChannelMemberLeaveEvent;
 import org.javacord.api.event.message.reaction.SingleReactionEvent;
@@ -70,15 +71,25 @@ public class Bot {
     }
 
     public void start() throws ExecutionException, InterruptedException {
+        Optional<Message> foundMessage = generalChannel.getMessagesAsStream().limit(10).filter(message -> {
+            Optional<User> userAuthor = message.getUserAuthor();
+            return userAuthor.isPresent() && userAuthor.get().isYourself();
+        }).findFirst();
+        if(foundMessage.isPresent()) {
+            myMessage = foundMessage.get();
+            System.out.println("Found old message at: " + myMessage.getCreationTimestamp());
+            System.out.println("Try to use it..");
+            myMessage.edit("Hi there!");
+        } else {
+            myMessage = generalChannel.sendMessage("Hi!").get();
+            myMessage.addReaction(PREV_EMOJI).join();
+            myMessage.addReaction(NEXT_EMOJI).join();
+            myMessage.addReaction(PLAY_EMOJI).join();
+            myMessage.addReaction(REPEAT_EMOJI).join();
+            myMessage.addReaction(CLEAR_EMOJI).join();
+            myMessage.addReaction(ROLL_EMOJI).join();
+        }
 
-        myMessage = generalChannel.sendMessage("Hi!").get();
-
-        myMessage.addReaction(PREV_EMOJI).join();
-        myMessage.addReaction(NEXT_EMOJI).join();
-        myMessage.addReaction(PLAY_EMOJI).join();
-        myMessage.addReaction(REPEAT_EMOJI).join();
-        myMessage.addReaction(CLEAR_EMOJI).join();
-        myMessage.addReaction(ROLL_EMOJI).join();
 
         myMessage.addReactionAddListener(this::handleEmoji);
         myMessage.addReactionRemoveListener(this::handleEmoji);
@@ -144,23 +155,35 @@ public class Bot {
     }
 
     private void handleEmoji(SingleReactionEvent event) {
-        System.out.println("User " + event.getUser().get().getNicknameMentionTag() + " use reaction");
-        String emoji = event.getEmoji().asUnicodeEmoji().get();
-        for (char c : emoji.toCharArray()) {
-            System.out.println("Name of emoji: " + Character.getName(c));
-
-        }
-        if(event.getUserId() == api.getYourself().getId()) {
-            return;
-        }
-        if(event.getMessageId()==myMessage.getId()) {
-            if(!mainButtonsHandler(event)) {
-                System.out.println("unknown emoji [1]: " + event.getEmoji().getMentionTag());
-            }
+        Optional<User> optionalUser = event.getUser();
+        if(optionalUser.isPresent()) {
+            System.out.println("User " + optionalUser.get().getNicknameMentionTag() + " use reaction");
         } else {
-             if(!privatePlayListButtonsHandler(event)) {
-                 System.out.println("unknown emoji [2]: " + event.getEmoji().getMentionTag());
-             }
+            System.out.println("Reaction user not found!");
+        }
+
+        Optional<String> optionalEmoji = event.getEmoji().asUnicodeEmoji();
+        if(!optionalEmoji.isPresent()) {
+            System.out.println("Emoji not found!");
+        } else {
+            String emoji = optionalEmoji.get();
+            for (char c : emoji.toCharArray()) {
+                System.out.println("Name of emoji: " + Character.getName(c));
+                System.out.println("Num val of emoji: " + Character.getNumericValue(c));
+
+            }
+            if (event.getUserId() == api.getYourself().getId()) {
+                return;
+            }
+            if (event.getMessageId() == myMessage.getId()) {
+                if (!mainButtonsHandler(event)) {
+                    System.out.println("unknown emoji [1]: " + event.getEmoji().getMentionTag());
+                }
+            } else {
+                if (!privatePlayListButtonsHandler(event)) {
+                    System.out.println("unknown emoji [2]: " + event.getEmoji().getMentionTag());
+                }
+            }
         }
     }
 
