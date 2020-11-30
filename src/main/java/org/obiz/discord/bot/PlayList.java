@@ -90,7 +90,8 @@ public class PlayList {
                 try {
                     System.out.println("Load info for : " + i + "/" + (url.length()-1) + " " + url);
                     Thread.sleep(500);
-                    info = loadTrack(url).get(5, TimeUnit.SECONDS).getInfo();
+                    Future<AudioTrack> audioTrackFuture = loadTrack(url);
+                    info = audioTrackFuture.get(5, TimeUnit.SECONDS).getInfo();
                     trackInfoMap.put(i, info);
 //                    trackInfoMap.put(i, new AudioTrackInfo("tst", "", 0, "", false, url ));
                 } catch (InterruptedException
@@ -196,10 +197,14 @@ public class PlayList {
             public void playlistLoaded(AudioPlaylist playlist) {}
 
             @Override
-            public void noMatches() {}
+            public void noMatches() {
+                System.out.println("No matches on LOAD_TRACK");
+            }
 
             @Override
-            public void loadFailed(FriendlyException exception) {}
+            public void loadFailed(FriendlyException exception) {
+                System.out.println(exception);
+            }
         });
 
         return result;
