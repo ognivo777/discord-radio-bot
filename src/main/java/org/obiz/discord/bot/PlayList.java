@@ -18,13 +18,13 @@ public class PlayList {
     };
 
     private static String[] urls = new String[] {
-            "https://www.youtube.com/watch?v=V68T7BxLsfk", // 0 jazz
-            "https://www.youtube.com/watch?v=2TvWZEVf6go", // 1 work
-            "https://www.youtube.com/watch?v=5qap5aO4i9A", // 2 ip hop stream
+            "https://www.youtube.com/watch?v=V68T7BxLsfk", // 0 jazz +
+            "https://www.youtube.com/watch?v=2TvWZEVf6go", // 1 work +
+            "https://www.youtube.com/watch?v=5qap5aO4i9A", // 2 ip hop stream X
 //            "https://www.youtube.com/watch?v=DqtD9f9OYLk", // 4 Christmas Jazz Instrumental
-            "https://www.youtube.com/watch?v=j1w9_z4FssM", // 5 Rotoscoping
-            "https://www.youtube.com/watch?v=c_iRx2Un07k", // 6 Kygo - Piano Jam For Studying and Sleeping[1 HOUR] [2020]
-            "https://www.youtube.com/watch?v=_dmOgDlWAkU", // 7 10 Pieces by Ludovico Einaudi \\ Relaxing Piano [1 HOUR]
+            "https://www.youtube.com/watch?v=j1w9_z4FssM", // 5 Rotoscoping +
+            "https://www.youtube.com/watch?v=c_iRx2Un07k", // 6 Kygo - Piano Jam For Studying and Sleeping[1 HOUR] [2020] +
+            "https://www.youtube.com/watch?v=_dmOgDlWAkU", // 7 10 Pieces by Ludovico Einaudi \\ Relaxing Piano [1 HOUR] +
 //            "https://www.youtube.com/watch?v=-5KAN9_CzSA", // 8 coffee shop radio // 24/7 lofi hip-hop beats
             "https://www.youtube.com/watch?v=lTRiuFIWV54", // 9 1 A.M Study Session 📚 - [lofi hip hop/chill beats]
             "https://www.youtube.com/watch?v=wAPCSnAhhC8", //10 A.M Study Session 📚 - [lofi hip hop/chill beats]
