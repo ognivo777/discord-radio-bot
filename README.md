@@ -4,6 +4,8 @@ discord-radio-bot - small but smart Discord bot for stream your favorite music f
 ![Preview](https://drive.google.com/uc?export=download&id=1bQ0LctDqiiJLQKM2k_WIwwi3WRMXDcIW)
 
 # Using
+Invite to your server using link
+https://discordapp.com/oauth2/authorize?client_id=778693882866434068&scope=bot&permissions=36793920
 
 Run like this
 
