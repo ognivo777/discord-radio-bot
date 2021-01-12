@@ -173,47 +173,71 @@ public class Bot {
     public void onMessageCreate(MessageCreateEvent event) {
         String text = event.getReadableMessageContent();
         if(text!=null) {
-            if (text.startsWith("r!y ")) {
+            if (text.startsWith("r!")) {
                 System.out.println("COMMAND: " + text);
-                String url = text.substring(4).trim();
-                loadYTAndPlay(url);
-            } else if (text.startsWith("r!ys ")) {
-                String term = text.substring(5).trim();
-                if(term.length() > 3) {
-                    try {
-                        YouTube.Search.List search = youTube.search().list("id,snippet");
-                        search.setKey(RadioV2.GOOGLE_DEVELOPER_KEY);
-                        search.setQ(term);
-                        search.setMaxResults(9l);
-                        List<SearchResult> items = search.execute().getItems();
-                        String result = "";
-                        int num = 0;
-                        Map<String, String> numsToIds = new HashMap<>();
-                        for (SearchResult item : items) {
-                            String id = item.getId().getVideoId();
-                            numsToIds.put(NUMS_1_to_9[num], id);
-                            result+= NUMS_1_to_9[num] + "`" + item.getSnippet().getTitle()+"` (" + id + ")\n";
-                            num++;
-                        }
-                        result+="";
-                        generalChannel.sendMessage(result, new EmbedBuilder()).thenAccept(message -> {
-                            for (int i = 0; i < NUMS_1_to_9.length; i++) {
-                                String s = NUMS_1_to_9[i];
-                                if(numsToIds.containsKey(s)) {
-                                    message.addReaction(s).join();
+                if (text.startsWith("r!y ")) {
+                    String url = text.substring(4).trim();
+                    loadYTAndPlay(url);
+                } else if (text.startsWith("r!ys ")) {
+                    String term = text.substring(5).trim();
+                    if (term.length() > 3) {
+                        try {
+                            YouTube.Search.List search = youTube.search().list("id,snippet");
+                            search.setKey(RadioV2.GOOGLE_DEVELOPER_KEY);
+                            search.setQ(term);
+                            search.setMaxResults(9L);
+                            List<SearchResult> items = search.execute().getItems();
+                            String result = "";
+                            int num = 0;
+                            Map<String, String> numsToIds = new HashMap<>();
+                            for (SearchResult item : items) {
+                                String id = item.getId().getVideoId();
+                                numsToIds.put(NUMS_1_to_9[num], id);
+                                result += NUMS_1_to_9[num] + "`" + item.getSnippet().getTitle() + "` (" + id + ")\n";
+                                num++;
+                            }
+                            result += "";
+                            generalChannel.sendMessage(result, new EmbedBuilder()).thenAccept(message -> {
+                                for (int i = 0; i < NUMS_1_to_9.length; i++) {
+                                    String s = NUMS_1_to_9[i];
+                                    if (numsToIds.containsKey(s)) {
+                                        message.addReaction(s).join();
+                                    }
                                 }
-                            }
-                            try {
-                                Thread.sleep(2);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            numsToIds.forEach((k, v) -> message.addReaction(k).join());
-                            message.addReactionAddListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
-                            message.addReactionRemoveListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
-                        });
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                                try {
+                                    Thread.sleep(2);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                                numsToIds.forEach((k, v) -> message.addReaction(k).join());
+                                message.addReactionAddListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
+                                message.addReactionRemoveListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
+                            });
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                } else if (text.startsWith("r!st ")) {
+                    String timeString = text.substring(5);
+                    if(timeString.matches("(\\d{1,2}:){0,2}\\d{1,2}")) {
+                        String timeParts[] = timeString.split(":");
+                        int seconds = 0, minutes = 0, hours = 0;
+                        int k = timeParts.length-1;
+                        seconds = k<0?0:Integer.parseInt(timeParts[k--]);
+                        minutes = k<0?0:Integer.parseInt(timeParts[k--]);
+                        hours = k<0?0:Integer.parseInt(timeParts[k--]);
+                        System.out.println("seconds = " + seconds);
+                        System.out.println("minutes = " + minutes);
+                        System.out.println("hours = " + hours);
+                        if(!player.isPaused()) {
+                            AudioTrack playingTrack = player.getPlayingTrack();
+                            int secondsToMove = hours * 60 * 60 + minutes * 60 + seconds;
+                            System.out.println("secondsToMove = " + secondsToMove);
+                            playingTrack.setPosition(Math.min(playingTrack.getDuration(), secondsToMove *1000));
+                            updateMessage();
+                        }
+                    } else {
+                        System.out.println("Wrong time string.");
                     }
                 }
             }
@@ -523,7 +547,7 @@ public class Bot {
     private void moveBackard() {
         if(!player.isPaused()) {
             AudioTrack playingTrack = player.getPlayingTrack();
-            playingTrack.setPosition(Math.min(0, playingTrack.getPosition()+30*1000));
+            playingTrack.setPosition(Math.max(0, playingTrack.getPosition()-30*1000));
             updateMessage();
         }
     }
