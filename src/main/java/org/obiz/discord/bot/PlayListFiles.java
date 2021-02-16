@@ -75,4 +75,11 @@ public class PlayListFiles extends PlayListBase implements PlayList {
         }
         return Optional.empty();
     }
+
+    @Override
+    public String getUriInfo() {
+        String uriInfo = super.getUriInfo();
+        String [] uriParts = uriInfo.split("[\\\\/]");
+        return uriParts[uriParts.length-1];
+    }
 }

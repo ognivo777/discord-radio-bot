@@ -219,7 +219,6 @@ public abstract class PlayListBase implements PlayList {
     @Override
     public String getUriInfo() {
         String uri = getCurrent().getInfo().uri;
-        String [] uriParts = uri.split("[\\\\/]");
-        return uriParts[uriParts.length-1];
+        return uri;
     }
 }

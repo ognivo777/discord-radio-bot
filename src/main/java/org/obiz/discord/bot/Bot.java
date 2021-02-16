@@ -61,6 +61,8 @@ public class Bot {
     private static final String FAST_REVERSE_EMOJI = "\u23EA";
     private static final String EXCL_QUEST_EMOJI = "\u2049\uFE0F";
 
+    private static final String LINK_EMOJI = "\ud83d\udd17";
+
 
     private static final String NUM_1 = "\u0031\u20E3"; //U+E21C "\uE21C"- "\u0031\u20E3"+
     private static final String NUM_2 = "\u0032\u20E3"; //U+E21D "\uFE0F"- "\u0032\u20E3"
@@ -193,7 +195,8 @@ public class Bot {
                             for (SearchResult item : items) {
                                 String id = item.getId().getVideoId();
                                 numsToIds.put(NUMS_1_to_9[num], id);
-                                result += NUMS_1_to_9[num] + "`" + item.getSnippet().getTitle() + "` (" + id + ")\n";
+//                                result += NUMS_1_to_9[num] + "`" + item.getSnippet().getTitle() + "` (" + id + ")\n";
+                                result += NUMS_1_to_9[num] + " " + item.getSnippet().getTitle() + "\n:link: https://www.youtube.com/watch?v=" + id + "\n";
                                 num++;
                             }
                             result += "";
