@@ -115,6 +115,8 @@ public class Bot {
         generalChannel = api.getTextChannelById(commandChannelId).get();
 
         generalChannel.addMessageCreateListener(this::onMessageCreate);
+        generalChannel.addReactionAddListener(this::playOnLinkButtonsHandler);
+        generalChannel.addReactionRemoveListener(this::playOnLinkButtonsHandler);
         playerManager = new DefaultAudioPlayerManager();
         player = playerManager.createPlayer();
         source = new LavaplayerAudioSource(api, player);
@@ -171,15 +173,19 @@ public class Bot {
 
     }
 
-
     public void onMessageCreate(MessageCreateEvent event) {
         String text = event.getReadableMessageContent();
-        if(text!=null) {
+        newMessageProcessor(text, Optional.of(event.getMessage()));
+    }
+
+    private void newMessageProcessor(String text, Optional<Message> newMessage) {
+        if(text !=null) {
             if (text.startsWith("r!")) {
                 System.out.println("COMMAND: " + text);
                 if (text.startsWith("r!y ")) {
                     String url = text.substring(4).trim();
                     loadYTAndPlay(url);
+                    newMessage.ifPresent(message -> message.addReaction(PLAY_PAUSE_EMOJI));
                 } else if (text.startsWith("r!ys ")) {
                     String term = text.substring(5).trim();
                     if (term.length() > 3) {
@@ -278,12 +284,32 @@ public class Bot {
             );
             myMessage.delete();
         }
-        if(false) { //очистка своих сообщений
-            generalChannel.getMessagesAsStream().limit(150).filter(message -> {
+        if(true) { //очистка своих сообщений
+            generalChannel.getMessagesAsStream().limit(200).filter(message -> {
                 Optional<User> userAuthor = message.getUserAuthor();
                 return userAuthor.isPresent() && userAuthor.get().isYourself();
             }).forEach(Message::delete);
         }
+
+        Map<String, Message> prevCommands = new HashMap<>();
+        generalChannel.getMessagesAsStream().limit(200)
+                .filter(message -> {
+                            String messageContent = message.getContent();
+                            if(messageContent.startsWith("r!y h")) {
+                                Message prevSameMessage = prevCommands.put(messageContent, message);
+                                if(prevSameMessage!=null) {
+                                    prevSameMessage.delete();
+                                    return false;
+                                }
+                                return true;
+                            }
+                            return false;
+                }
+                )
+                .filter(message -> !message.getReactionByEmoji(PLAY_PAUSE_EMOJI).isPresent())
+                .forEach(
+                        message -> message.addReaction(PLAY_PAUSE_EMOJI)
+                );
 
         myMessage = generalChannel.sendMessage("Hi!").join();
         myMessage.addReaction(LOUDSPEAKER_EMOJI);
@@ -396,7 +422,6 @@ public class Bot {
             for (char c : emoji.toCharArray()) {
                 System.out.println("Name of emoji: " + Character.getName(c));
                 System.out.println("Num val of emoji: " + Character.getNumericValue(c));
-
             }
             if (event.getUserId() == api.getYourself().getId()) {
                 System.out.println("it's myself reaction");
@@ -638,6 +663,22 @@ public class Bot {
         playTrack(playList.trackByNum(trackNum));
         return true;
     }
+
+    public void playOnLinkButtonsHandler(SingleReactionEvent event) {
+        event.getUser().ifPresent(user -> {
+            if(!user.isYourself()) {
+                event.getMessage().ifPresent(message -> {
+                    if(message.getId()!=myMessage.getId()) {
+                        String emojiFromEvent = event.getEmoji().asUnicodeEmoji().get();
+                        if (emojiFromEvent.equals(PLAY_PAUSE_EMOJI)) {
+                            newMessageProcessor(message.getContent(), Optional.empty());
+                        }
+                    }
+                });
+            }
+        });
+    }
+
 
     /*
     * print list of tracks to private message and save message id for react on track num reactions*/
