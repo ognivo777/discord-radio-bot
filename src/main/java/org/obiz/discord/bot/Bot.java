@@ -285,14 +285,14 @@ public class Bot {
             myMessage.delete();
         }
         if(true) { //очистка своих сообщений
-            generalChannel.getMessagesAsStream().limit(200).filter(message -> {
+            generalChannel.getMessagesAsStream().limit(20).filter(message -> {
                 Optional<User> userAuthor = message.getUserAuthor();
                 return userAuthor.isPresent() && userAuthor.get().isYourself();
             }).forEach(Message::delete);
         }
 
         Map<String, Message> prevCommands = new HashMap<>();
-        generalChannel.getMessagesAsStream().limit(200)
+        generalChannel.getMessagesAsStream().limit(20)
                 .filter(message -> {
                             String messageContent = message.getContent();
                             if(messageContent.startsWith("r!y h")) {
@@ -669,6 +669,7 @@ public class Bot {
             if(!user.isYourself()) {
                 event.getMessage().ifPresent(message -> {
                     if(message.getId()!=myMessage.getId()) {
+                        System.out.println(message.getContent());
                         String emojiFromEvent = event.getEmoji().asUnicodeEmoji().get();
                         if (emojiFromEvent.equals(PLAY_PAUSE_EMOJI)) {
                             newMessageProcessor(message.getContent(), Optional.empty());
