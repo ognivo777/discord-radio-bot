@@ -21,6 +21,7 @@ import org.javacord.api.entity.channel.TextChannel;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.permission.Permissions;
+import org.javacord.api.entity.server.Server;
 import org.javacord.api.entity.user.User;
 import org.javacord.api.event.channel.server.voice.ServerVoiceChannelMemberJoinEvent;
 import org.javacord.api.event.channel.server.voice.ServerVoiceChannelMemberLeaveEvent;
@@ -30,6 +31,7 @@ import org.javacord.api.event.message.reaction.SingleReactionEvent;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -92,6 +94,8 @@ public class Bot {
     private DiscordApi api;
     private ServerVoiceChannel radioChannel;
     private final TextChannel generalChannel;
+    private final Server server;
+
     private PlayList playList;
     private final AudioPlayerManager playerManager;
     private final AudioPlayer player;
@@ -103,27 +107,24 @@ public class Bot {
     private AudioConnection audioConnection;
     private long beforeLeaveOrPausePosition;
     private YouTube youTube = null;
+    private boolean onPause = true;
 
 
     public Bot(String key, long commandChannelId, String mode) {
         System.out.println("Key: " + key);
         api = new DiscordApiBuilder().setToken(key).login().join();
         api.createBotInvite(Permissions.fromBitmask(171044160));
-//        api.
         Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
 
         generalChannel = api.getTextChannelById(commandChannelId).get();
+        server = generalChannel.asServerChannel().get().getServer();
 
-        generalChannel.addMessageCreateListener(this::onMessageCreate);
-        generalChannel.addReactionAddListener(this::playOnLinkButtonsHandler);
-        generalChannel.addReactionRemoveListener(this::playOnLinkButtonsHandler);
         playerManager = new DefaultAudioPlayerManager();
         player = playerManager.createPlayer();
         source = new LavaplayerAudioSource(api, player);
         if(mode.equals("local")) {
             playerManager.registerSourceManager(new LocalAudioSourceManager());
             playList = new PlayListFiles(playerManager);
-//            System.exit(0);
         } else {
             playerManager.registerSourceManager(new YoutubeAudioSourceManager());
             playList = new PlayListFixedYoutubeList(playerManager, "");
@@ -133,6 +134,7 @@ public class Bot {
         try {
             youTube = YTUtils.getService();
         } catch (GeneralSecurityException | IOException e) {
+            System.out.println("Can't start YouTube");
             e.printStackTrace();
         }
     }
@@ -153,18 +155,28 @@ public class Bot {
 
         player.addListener(new AudioEventAdapter() {
            public void onTrackEnd(AudioPlayer player, AudioTrack track, AudioTrackEndReason endReason) {
+               System.out.println("onTrackEnd: START");
                //ToDo try to use endReason.mayStartNext for check instead of '"REPLACED"'
-               if(!endReason.name().equals("REPLACED")) {
-                   if(isRepeatOn) {
-                       playTrack(playList.getCurrentFromStart());
-                   } else {
-                       player.stopTrack();
-                       playList.getCurrent().setPosition(0);
-                       playTrack(playList.getNext());
-                   }
+               if(!endReason.name().equals("REPLACED") && !onPause) {
+                   System.out.println("onTrackEnd: endReason.name() = " + endReason.name());
+                   api.getYourself().getConnectedVoiceChannel(server).ifPresent(serverVoiceChannel -> {
+                       if(isRepeatOn) {
+                           System.out.println("onTrackEnd: repeat");
+                           playTrack(playList.getCurrentFromStart());
+                       } else {
+                           System.out.println("onTrackEnd: next");
+                           player.stopTrack();
+                           playList.getCurrent().setPosition(0);
+                           playTrack(playList.getNext());
+                       }
+                   });
                }
            }
         });
+
+        generalChannel.addMessageCreateListener(this::onMessageCreate);
+        generalChannel.addReactionAddListener(this::playOnLinkButtonsHandler);
+        generalChannel.addReactionRemoveListener(this::playOnLinkButtonsHandler);
 
         long delay = 10000L;
         new Timer("Timer").scheduleAtFixedRate(new TimerTask() {
@@ -182,7 +194,7 @@ public class Bot {
         if(text !=null) {
             if (text.startsWith("r!")) {
                 System.out.println("COMMAND: " + text);
-                if (text.startsWith("r!y ")) {
+                if (text.startsWith("r!y http")) {
                     String url = text.substring(4).trim();
                     loadYTAndPlay(url);
                     newMessage.ifPresent(message -> message.addReaction(PLAY_PAUSE_EMOJI));
@@ -226,10 +238,10 @@ public class Bot {
                             e.printStackTrace();
                         }
                     }
-                } else if (text.startsWith("r!st ")) {
+                } else if (text.startsWith("r!st ")) { //set time to in format: [hh:][mm:]ss
                     String timeString = text.substring(5);
                     if(timeString.matches("(\\d{1,2}:){0,2}\\d{1,2}")) {
-                        String timeParts[] = timeString.split(":");
+                        String[] timeParts = timeString.split(":");
                         int seconds = 0, minutes = 0, hours = 0;
                         int k = timeParts.length-1;
                         seconds = k<0?0:Integer.parseInt(timeParts[k--]);
@@ -238,11 +250,11 @@ public class Bot {
                         System.out.println("seconds = " + seconds);
                         System.out.println("minutes = " + minutes);
                         System.out.println("hours = " + hours);
-                        if(!player.isPaused()) {
+                        if(!isPlayerPaused()) {
                             AudioTrack playingTrack = player.getPlayingTrack();
                             int secondsToMove = hours * 60 * 60 + minutes * 60 + seconds;
                             System.out.println("secondsToMove = " + secondsToMove);
-                            playingTrack.setPosition(Math.min(playingTrack.getDuration(), secondsToMove *1000));
+                            playingTrack.setPosition(Math.min(playingTrack.getDuration(), secondsToMove * 1000L));
                             updateMessage();
                         }
                     } else {
@@ -266,12 +278,15 @@ public class Bot {
     protected void loadYTAndPlay(String url) {
         if(url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$")) {
             System.out.println("try to load and play..");
-            player.setPaused(true);
-            //playerManager.registerSourceManager(new YoutubeAudioSourceManager());
-            PlayList tmpPlayList = new PlayListFixedYoutubeList(playerManager, url);
-            AudioTrack next = tmpPlayList.getNext();
-            playList.insert(next);
-            playTrack(next);
+//            player.setPaused(true);
+            try {
+                playList.loadTrack(url).get(5, TimeUnit.SECONDS).ifPresent(next -> {
+                    playList.insert(next);
+                    playTrack(playList.getCurrentWithClone());
+                });
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -291,50 +306,54 @@ public class Bot {
             }).forEach(Message::delete);
         }
 
-        Map<String, Message> prevCommands = new HashMap<>();
-        generalChannel.getMessagesAsStream().limit(20)
-                .filter(message -> {
+        Set<String> prevCommands = new HashSet<>();
+        generalChannel.getMessagesAsStream().limit(5)
+                .forEach(message -> {
                             String messageContent = message.getContent();
+                            System.out.println("FILTER: " + messageContent);
                             if(messageContent.startsWith("r!y h")) {
-                                Message prevSameMessage = prevCommands.put(messageContent, message);
-                                if(prevSameMessage!=null) {
-                                    prevSameMessage.delete();
-                                    return false;
+                                System.out.println("FILTER: startsWith(\"r!y h\"): true");
+                                if(!prevCommands.add(messageContent)) {
+                                    message.delete();
+                                    return;
                                 }
-                                return true;
+                                message.getReactionByEmoji(PLAY_PAUSE_EMOJI).ifPresentOrElse(m->{
+                                    System.out.println("ADD PLAYSTOP: already exists!");
+                                },() -> {
+                                    System.out.println("ADD PLAYSTOP: try to add!");
+                                    message.addReaction(PLAY_PAUSE_EMOJI);
+                                });
                             }
-                            return false;
-                }
-                )
-                .filter(message -> !message.getReactionByEmoji(PLAY_PAUSE_EMOJI).isPresent())
-                .forEach(
-                        message -> message.addReaction(PLAY_PAUSE_EMOJI)
-                );
+
+                });
+
 
         myMessage = generalChannel.sendMessage("Hi!").join();
-        myMessage.addReaction(LOUDSPEAKER_EMOJI);
-        myMessage.addReaction(MUTED_SPEAKER_EMOJI);
-//        myMessage.addReaction(STOP_EMOJI);
-        myMessage.addReaction(PREV_EMOJI);
-        myMessage.addReaction(NEXT_EMOJI);
-        myMessage.addReaction(PLAY_PAUSE_EMOJI);
-        myMessage.addReaction(REPEAT_EMOJI);
 
+        CompletableFuture.allOf(
+                myMessage.addReaction(LOUDSPEAKER_EMOJI),
+                myMessage.addReaction(MUTED_SPEAKER_EMOJI),
+//                myMessage.addReaction(STOP_EMOJI),
+                myMessage.addReaction(PREV_EMOJI),
+                myMessage.addReaction(NEXT_EMOJI),
+                myMessage.addReaction(PLAY_PAUSE_EMOJI),
+                myMessage.addReaction(REPEAT_EMOJI),
 
-        myMessage.addReaction(FAST_REVERSE_EMOJI);
-        myMessage.addReaction(FAST_FORWARD_EMOJI);
+                myMessage.addReaction(FAST_REVERSE_EMOJI),
+                myMessage.addReaction(FAST_FORWARD_EMOJI),
 
-//        myMessage.addReaction(LOW_SOUND_EMOJI);
-//        myMessage.addReaction(MID_SOUND_EMOJI);
-//        myMessage.addReaction(HIGH_SOUND_EMOJI);
+//                myMessage.addReaction(LOW_SOUND_EMOJI),
+//                myMessage.addReaction(MID_SOUND_EMOJI),
+//                myMessage.addReaction(HIGH_SOUND_EMOJI),
 
-//        myMessage.addReaction(CLEAR_EMOJI);
-//        myMessage.addReaction(ROLL_EMOJI);
-        myMessage.addReaction(FAST_DOWN_EMOJI);
-        myMessage.addReaction(EXCL_QUEST_EMOJI);
+//                myMessage.addReaction(CLEAR_EMOJI),
+//                myMessage.addReaction(ROLL_EMOJI),
+                myMessage.addReaction(FAST_DOWN_EMOJI),
+                myMessage.addReaction(EXCL_QUEST_EMOJI)).thenRun(() -> {
+            myMessage.addReactionAddListener(this::handleEmoji);
+            myMessage.addReactionRemoveListener(this::handleEmoji);
+        });
 
-        myMessage.addReactionAddListener(this::handleEmoji);
-        myMessage.addReactionRemoveListener(this::handleEmoji);
     }
 
     private String getUnicodeEmoji(String codepoint) {
@@ -354,9 +373,17 @@ public class Bot {
     }
 
     private void playTrack(AudioTrack track) {
-        player.playTrack(track);
-        player.setVolume(90);
-        player.setPaused(false);
+        api.getYourself().getConnectedVoiceChannel(server).ifPresentOrElse(serverVoiceChannel -> {
+            if(serverVoiceChannel.getConnectedUserIds().size()>1) {
+                onPause = false;
+                player.playTrack(track);
+                player.setVolume(90);
+//                player.setPaused(false);
+            }
+        },() -> {
+            onPause = true;
+//            playMeAfterPause = track;
+        });
         updateMessage();
     }
 
@@ -365,7 +392,7 @@ public class Bot {
         if(track!=null) {
             String content = ""
                     + (isRepeatOn ? REPEAT_EMOJI + " " : "")
-                    + (player.isPaused() ? PAUSE_EMOJI + " " : "Now playing: ")
+                    + (isPlayerPaused() ? PAUSE_EMOJI + " " : "Now playing: ")
                     + track.getInfo().title
                     + " (" + timeInMsAsString(track.getPosition())
                     + " of " + timeInMsAsString(track.getDuration())
@@ -381,29 +408,57 @@ public class Bot {
         }
     }
 
+    private boolean isPlayerPaused() {
+        return onPause;
+//        return player.isPaused() || player.getPlayingTrack() == null;
+    }
+
     private void handleJoin(ServerVoiceChannelMemberJoinEvent event) {
-        if(radioChannel!=null && radioChannel.getId() == event.getChannel().getId()) {
-            System.out.println("Sombdy join");
-            //ToDo check if player paused - unpause them
-            if (player.isPaused()) {
-                System.out.println("setPaused(false)");
-                player.setPaused(false);
-                updateMessage();
+        api.getYourself().getConnectedVoiceChannel(server).ifPresent(serverVoiceChannel -> {
+            if(serverVoiceChannel.getConnectedUserIds().size()>1) {
+                System.out.println("Sombdy join");
+                //ToDo check if player paused - unpause them
+                if (player.getPlayingTrack()==null) {
+                    AudioTrack current = playList.getCurrentWithClone();
+                    current.setPosition(beforeLeaveOrPausePosition);
+                    playTrack(current);
+//                    System.out.println("setPaused(false)");
+//                    player.setPaused(false);
+//                    updateMessage();
+                }
             }
-        }
+        });
     }
 
     private void handleLeave(ServerVoiceChannelMemberLeaveEvent event) {
-        if(radioChannel!=null && radioChannel.getId() == event.getChannel().getId()) {
-            System.out.println("Sombdy leave");
-            if(radioChannel.getConnectedUserIds().size()==1) {
-                System.out.println("setPaused(true)");
-                player.setPaused(true);
-                beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
-                updateMessage();
-
-            }
+        System.out.println("handleLeave: START");
+        if(!event.getUser().isYourself()) {
+            System.out.println("handleLeave: it's not me");
+            api.getYourself().getConnectedVoiceChannel(server).ifPresent(serverVoiceChannel -> {
+                System.out.println("handleLeave: i'm on voice channel");
+                if (serverVoiceChannel.getConnectedUserIds().size() == 1) {
+                    System.out.println("handleLeave: it's ony me here");
+                    if (player.getPlayingTrack() != null) {
+//                    playMeAfterPause = player.getPlayingTrack();
+                        beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
+                        System.out.println("beforeLeaveOrPausePosition = " + beforeLeaveOrPausePosition);
+                    }
+                    onPause = true;
+                    player.stopTrack();
+                    updateMessage();
+                }
+            });
         }
+//        if(radioChannel!=null && radioChannel.getId() == event.getChannel().getId()) {
+//
+//            if(radioChannel.getConnectedUserIds().size()==1) {
+//                System.out.println("setPaused(true)");
+//                player.setPaused(true);
+//                beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
+//                updateMessage();
+//
+//            }
+//        }
     }
 
     private void handleEmoji(SingleReactionEvent event) {
@@ -527,19 +582,19 @@ public class Bot {
     }
 
     private void setLowVolume() {
-        if(!player.isPaused()) {
+        if(!isPlayerPaused()) {
             player.setVolume(7);
         }
     }
 
     private void setMidVolume() {
-        if(!player.isPaused()) {
+        if(!isPlayerPaused()) {
             player.setVolume(45);
         }
     }
 
     private void setHighVolume() {
-        if(!player.isPaused()) {
+        if(!isPlayerPaused()) {
             player.setVolume(100);
         }
     }
@@ -547,9 +602,15 @@ public class Bot {
     private void leave() {
         if(radioChannel!=null && audioConnection!=null) {
             System.out.println("Try to stop playing and leave.");
+            onPause = true;
             radioChannel.getVoiceChannelAttachableListeners().forEach( (l, k) -> radioChannel.removeVoiceChannelAttachableListener(l));
-            player.setPaused(true);
-            beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
+            radioChannel = null;
+            if(player.getPlayingTrack()!=null) {
+//                player.setPaused(true);
+                beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
+                System.out.println("beforeLeaveOrPausePosition = " + beforeLeaveOrPausePosition);
+            }
+            player.stopTrack();
             audioConnection.removeAudioSource(); //is really needed??
 //        player.stopTrack();
             try {
@@ -557,15 +618,15 @@ public class Bot {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            radioChannel = null;
             audioConnection = null;
+            updateMessage();
         } else {
             System.out.println("Do nothing! I'm not in any channel!");
         }
     }
 
     private void moveForward() {
-        if(!player.isPaused()) {
+        if(!isPlayerPaused()) {
             AudioTrack playingTrack = player.getPlayingTrack();
             playingTrack.setPosition(Math.min(playingTrack.getDuration(), playingTrack.getPosition()+30*1000));
             updateMessage();
@@ -573,7 +634,7 @@ public class Bot {
     }
 
     private void moveBackard() {
-        if(!player.isPaused()) {
+        if(!isPlayerPaused()) {
             AudioTrack playingTrack = player.getPlayingTrack();
             playingTrack.setPosition(Math.max(0, playingTrack.getPosition()-30*1000));
             updateMessage();
@@ -613,7 +674,9 @@ public class Bot {
                         return;
                     }
                     System.out.println("radioChannel != null && audioConnection!=null");
-                    player.setPaused(true);
+                    onPause = true;
+                    player.stopTrack();
+//                    player.setPaused(true);
                     beforeLeaveOrPausePosition = player.getPlayingTrack().getPosition();
                     radioChannel.getVoiceChannelAttachableListeners().forEach( (l, k) -> radioChannel.removeVoiceChannelAttachableListener(l));
                     audioConnection.removeAudioSource();
@@ -626,9 +689,8 @@ public class Bot {
                     this.audioConnection = audioConnection;
                     this.audioConnection.setAudioSource(source);
                     AudioTrack current = playList.getCurrentWithClone();
-                    AudioTrack clone = current;
-                    clone.setPosition(beforeLeaveOrPausePosition);
-                    playTrack(clone);
+                    current.setPosition(beforeLeaveOrPausePosition);
+                    playTrack(current);
                 });
 
                 this.radioChannel = channel;

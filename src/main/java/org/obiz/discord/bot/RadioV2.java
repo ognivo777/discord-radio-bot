@@ -9,7 +9,7 @@ public class RadioV2 {
 
     public static void main(String[] args) {
 
-        if(args.length!=4) {
+        if(args.length!=5) {
             System.out.println("Wrong params. Use <discord api key> <control channel id> <mode> <folder with music> <google api key>");
         }
         String key = args[0];

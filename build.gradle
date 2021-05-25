@@ -1,9 +1,11 @@
 plugins {
-    id 'java'
+    id 'application'
 }
 
 group 'org.example'
 version '1.0-SNAPSHOT'
+
+mainClassName = 'org.obiz.discord.bot.RadioV2'
 
 compileJava.options.encoding = "UTF-8"
 
@@ -29,6 +31,11 @@ dependencies {
 
 //    testCompile group: 'junit', name: 'junit', version: '4.12'
 }
+
+//application {
+//    mainClass = 'org.obiz.discord.bot.RadioV2'
+//    applicationDefaultJvmArgs = ['-Dfile.encoding=UTF8', '-Djava.util.logging.config.file=logging.properties']
+//}
 
 jar {
     manifest {

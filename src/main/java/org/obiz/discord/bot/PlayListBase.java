@@ -3,6 +3,7 @@ package org.obiz.discord.bot;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.source.AudioSourceManager;
+import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioTrack;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
@@ -138,7 +139,7 @@ public abstract class PlayListBase implements PlayList {
         return null;
     }
 
-    protected Future<Optional<AudioTrack>> loadTrack(String url) {
+    public Future<Optional<AudioTrack>> loadTrack(String url) {
 
         BlockingQueue<Optional<AudioTrack>> reply = new ArrayBlockingQueue<>(1);
 
@@ -218,7 +219,13 @@ public abstract class PlayListBase implements PlayList {
 
     @Override
     public String getUriInfo() {
-        String uri = getCurrent().getInfo().uri;
-        return uri;
+        AudioTrack current = getCurrent();
+        String uriInfo = current.getInfo().uri;
+        if(current instanceof YoutubeAudioTrack) {
+            return uriInfo;
+        } else {
+            String [] uriParts = uriInfo.split("[\\\\/]");
+            return uriParts[uriParts.length-1];
+        }
     }
 }
