@@ -31,10 +31,7 @@ import org.javacord.api.event.message.reaction.SingleReactionEvent;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.*;
 
 public class Bot {
 
@@ -119,6 +116,9 @@ public class Bot {
         generalChannel = api.getTextChannelById(commandChannelId).get();
         server = generalChannel.asServerChannel().get().getServer();
 
+        long myPermissions = server.getPermissions(api.getYourself()).getAllowedBitmask();
+        System.out.println("myPermissions = " + myPermissions);
+
         playerManager = new DefaultAudioPlayerManager();
         player = playerManager.createPlayer();
         source = new LavaplayerAudioSource(api, player);
@@ -175,6 +175,19 @@ public class Bot {
         });
 
         generalChannel.addMessageCreateListener(this::onMessageCreate);
+
+//        Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
+//            generalChannel.getReactionRemoveListeners()
+//                    .forEach(
+//                            generalChannel::removeTextChannelAttachableListener
+//                    );
+//            generalChannel.getReactionAddListeners()
+//                    .forEach(
+//                            generalChannel::removeTextChannelAttachableListener
+//                    );
+//
+//        }, 10,5, TimeUnit.SECONDS);
+
         generalChannel.addReactionAddListener(this::playOnLinkButtonsHandler);
         generalChannel.addReactionRemoveListener(this::playOnLinkButtonsHandler);
 
@@ -197,7 +210,11 @@ public class Bot {
                 if (text.startsWith("r!y http")) {
                     String url = text.substring(4).trim();
                     loadYTAndPlay(url);
-                    newMessage.ifPresent(message -> message.addReaction(PLAY_PAUSE_EMOJI));
+                    newMessage.ifPresent(message -> {
+                        if(!message.getReactionByEmoji(PLAY_PAUSE_EMOJI).isPresent()) {
+                            message.addReaction(PLAY_PAUSE_EMOJI);
+                        }
+                    });
                 } else if (text.startsWith("r!ys ")) {
                     String term = text.substring(5).trim();
                     if (term.length() > 3) {
@@ -307,7 +324,7 @@ public class Bot {
         }
 
         Set<String> prevCommands = new HashSet<>();
-        generalChannel.getMessagesAsStream().limit(5)
+        generalChannel.getMessagesAsStream().limit(15)
                 .forEach(message -> {
                             String messageContent = message.getContent();
                             System.out.println("FILTER: " + messageContent);
@@ -317,14 +334,15 @@ public class Bot {
                                     message.delete();
                                     return;
                                 }
-                                message.getReactionByEmoji(PLAY_PAUSE_EMOJI).ifPresentOrElse(m->{
+                                if(message.getReactionByEmoji(PLAY_PAUSE_EMOJI).isPresent()) {
                                     System.out.println("ADD PLAYSTOP: already exists!");
-                                },() -> {
+                                } else {
                                     System.out.println("ADD PLAYSTOP: try to add!");
                                     message.addReaction(PLAY_PAUSE_EMOJI);
-                                });
+                                }
+//                                message.addReactionAddListener(this::playOnLinkButtonsHandler);
+//                                message.addReactionRemoveListener(this::playOnLinkButtonsHandler);
                             }
-
                 });
 
 
@@ -373,17 +391,19 @@ public class Bot {
     }
 
     private void playTrack(AudioTrack track) {
-        api.getYourself().getConnectedVoiceChannel(server).ifPresentOrElse(serverVoiceChannel -> {
+        Optional<ServerVoiceChannel> connectedVoiceChannel = api.getYourself().getConnectedVoiceChannel(server);
+        if(connectedVoiceChannel.isPresent()) {
+            ServerVoiceChannel serverVoiceChannel = connectedVoiceChannel.get();
             if(serverVoiceChannel.getConnectedUserIds().size()>1) {
                 onPause = false;
                 player.playTrack(track);
                 player.setVolume(90);
 //                player.setPaused(false);
             }
-        },() -> {
+        } else {
             onPause = true;
 //            playMeAfterPause = track;
-        });
+        }
         updateMessage();
     }
 
@@ -727,19 +747,27 @@ public class Bot {
     }
 
     public void playOnLinkButtonsHandler(SingleReactionEvent event) {
-        event.getUser().ifPresent(user -> {
-            if(!user.isYourself()) {
-                event.getMessage().ifPresent(message -> {
-                    if(message.getId()!=myMessage.getId()) {
-                        System.out.println(message.getContent());
-                        String emojiFromEvent = event.getEmoji().asUnicodeEmoji().get();
-                        if (emojiFromEvent.equals(PLAY_PAUSE_EMOJI)) {
-                            newMessageProcessor(message.getContent(), Optional.empty());
+        try {
+            System.out.println("playOnLinkButtonsHandler: START");
+            event.getUser().ifPresent(user -> {
+                if (!user.isYourself()) {
+                    System.out.println("playOnLinkButtonsHandler: User:" + user.getName());
+                    event.getMessage().ifPresent(message -> {
+                        System.out.println("playOnLinkButtonsHandler: message: " + message);
+                        if (message.getId() != myMessage.getId()) {
+                            String emojiFromEvent = event.getEmoji().asUnicodeEmoji().get();
+                            System.out.println("playOnLinkButtonsHandler: emoji: " + emojiFromEvent);
+                            if (emojiFromEvent.equals(PLAY_PAUSE_EMOJI)) {
+                                System.out.println("playOnLinkButtonsHandler: PLAY YT!");
+                                newMessageProcessor(message.getContent(), Optional.empty());
+                            }
                         }
-                    }
-                });
-            }
-        });
+                    });
+                }
+            });
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 
