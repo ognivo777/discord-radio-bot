@@ -111,6 +111,7 @@ public class Bot {
         System.out.println("Key: " + key);
         api = new DiscordApiBuilder().setToken(key).login().join();
         api.createBotInvite(Permissions.fromBitmask(171044160));
+        api.setMessageCacheSize(300, Integer.MAX_VALUE);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown()));
 
         generalChannel = api.getTextChannelById(commandChannelId).get();
@@ -337,7 +338,7 @@ public class Bot {
         }
 
         Set<String> prevCommands = new HashSet<>();
-        generalChannel.getMessagesAsStream().limit(15)
+        generalChannel.getMessagesAsStream().limit(60)
                 .forEach(message -> {
                             String messageContent = message.getContent();
                             System.out.println("FILTER: " + messageContent);
