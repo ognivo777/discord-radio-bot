@@ -216,7 +216,9 @@ public class Bot {
                         }
                     });
                 } else if (text.startsWith("r!ys ")) {
+                    System.out.println("Search command");
                     String term = text.substring(5).trim();
+                    System.out.println("Term: " + term);
                     if (term.length() > 3) {
                         try {
                             YouTube.Search.List search = youTube.search().list("id,snippet");
@@ -235,21 +237,32 @@ public class Bot {
                                 num++;
                             }
                             result += "";
-                            generalChannel.sendMessage(result, new EmbedBuilder()).thenAccept(message -> {
-                                for (int i = 0; i < NUMS_1_to_9.length; i++) {
-                                    String s = NUMS_1_to_9[i];
-                                    if (numsToIds.containsKey(s)) {
-                                        message.addReaction(s).join();
+                            System.out.println("result = " + result);
+                            EmbedBuilder embedBuilder = new EmbedBuilder().setDescription("Search results");
+
+
+                            CompletableFuture<Message> messageCompletableFuture = generalChannel.sendMessage(result, embedBuilder);
+                            messageCompletableFuture.whenComplete((message, throwable) -> {
+                                if(throwable!=null) {
+                                    System.out.println("Error on print search result:");
+                                    throwable.printStackTrace();
+                                } else {
+                                    System.out.println("Add reactions to search result..");
+                                    for (int i = 0; i < NUMS_1_to_9.length; i++) {
+                                        String s = NUMS_1_to_9[i];
+                                        if (numsToIds.containsKey(s)) {
+                                            message.addReaction(s).join();
+                                        }
                                     }
+                                    try {
+                                        Thread.sleep(2);
+                                    } catch (InterruptedException e) {
+                                        e.printStackTrace();
+                                    }
+                                    numsToIds.forEach((k, v) -> message.addReaction(k).join());
+                                    message.addReactionAddListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
+                                    message.addReactionRemoveListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
                                 }
-                                try {
-                                    Thread.sleep(2);
-                                } catch (InterruptedException e) {
-                                    e.printStackTrace();
-                                }
-                                numsToIds.forEach((k, v) -> message.addReaction(k).join());
-                                message.addReactionAddListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
-                                message.addReactionRemoveListener(addReactionEven -> onSearchResultReaction(numsToIds, addReactionEven));
                             });
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -294,7 +307,7 @@ public class Bot {
 
     protected void loadYTAndPlay(String url) {
         if(url.matches("^((?:https?:)?\\/\\/)?((?:www|m)\\.)?((?:youtube\\.com|youtu.be))(\\/(?:[\\w\\-]+\\?v=|embed\\/|v\\/)?)([\\w\\-]+)(\\S+)?$")) {
-            System.out.println("try to load and play..");
+            System.out.println("try to load and play..\nurl:" + url);
 //            player.setPaused(true);
             try {
                 playList.loadTrack(url).get(5, TimeUnit.SECONDS).ifPresent(next -> {
